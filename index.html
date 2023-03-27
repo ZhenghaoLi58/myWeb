@@ -184,7 +184,7 @@
                             .style("left", e.clientX + 10 + "px")
                             .style("top", e.pageY + 10 + "px")
                             .html(`
-                                Answer: ${d[0]}
+                                ${d[0]}
                                 <br />
                                 Segment Type: ${arr[0]}
                                 <br />
@@ -214,6 +214,111 @@
                 .attr("height", y.bandwidth())
                 .attr("stroke", "#000")
                 .attr("fill", "none");
+        }
+
+        function gender(res) {
+            const width = 800, height = 450;
+            const margin = { left: 100, top: 20, right: 100, bottom: 30 };
+            const svg = d3.select("#gender")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
+            let data = d3.groups(res.filter(d => d["Segment Type"] == "Gender"), d => d["Segment Description"], d => d.Answer).map(d => {
+                let obj = {};
+                obj.gender = d[0]
+                d[1].forEach(([answer, arr]) => {
+                    obj[answer] = d3.sum(arr, v => v.Count);
+                })
+                return obj;
+            })
+            const stack = d3.stack()
+                .keys(["Twitter", "Snapchat", "Instagram", "Facebook"])
+                .order(d3.stackOrderNone)
+                .offset(d3.stackOffsetNone);
+            let series = stack(data);
+            let x = d3.scaleBand()
+                .domain(["Male voters", "Female voters"])
+                .range([margin.left, width - margin.right])
+                .padding(0.4);
+            svg.append("g")
+                .attr("transform", `translate(0,${height - margin.bottom})`)
+                .call(d3.axisBottom(x))
+                .call(g => {
+                    g.selectAll("path").remove();
+                    g.selectAll("line").remove();
+                    g.selectAll("text").attr("font-size", 14)
+
+                })
+            let y = d3.scaleLinear()
+                .domain([0, Math.max(series[series.length - 1][0][1], series[series.length - 1][1][1])])
+                .range([height - margin.bottom, margin.top]);
+            const color = d3.scaleOrdinal()
+                .domain(["Twitter", "Snapchat", "Instagram", "Facebook"])
+                .range(["#375881", "#487B9C", "#8FC1CA", "#C4E3D8"]);
+            svg.append("g")
+                .selectAll("rect")
+                .data(color.domain())
+                .join("rect")
+                .attr("x", 20)
+                .attr("y", (d, i) => 20 * i + 30)
+                .attr("width", 15)
+                .attr("height", 15)
+                .attr("fill", d => color(d));
+            svg.append("g")
+                .attr("font-size", 12)
+                .selectAll("text")
+                .data(color.domain())
+                .join("text")
+                .attr("x", 42)
+                .attr("y", (d, i) => 20 * i + 40)
+                .text(d => d)
+                .attr("dominant-baseline", "middle");
+
+            series.forEach((arr) => {
+                let g = svg.append("g")
+                    .attr("font-size", 12)
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "middle")
+                    .attr("fill", color(arr.key));
+
+                g.selectAll("rect")
+                    .data(arr)
+                    .join("rect")
+                    .attr("x", (d) => x(d.data.gender))
+                    .attr("y", ([y1, y2]) => Math.min(y(y1), y(y2)))
+                    .attr("height", ([y1, y2]) => Math.abs(y(y1) - y(y2)))
+                    .attr("width", x.bandwidth())
+                    .style("cursor", "pointer")
+                    .on("mousemove", (e, d) => {
+                        d3.select(e.target)
+                            .attr("stroke", "#000");
+                        d3.select("#tooltip")
+                            .style("display", "block")
+                            .style("left", e.clientX + 10 + "px")
+                            .style("top", e.pageY + 10 + "px")
+                            .html(`
+                                ${d.data.gender}
+                                <br />
+                                ${arr.key}
+                                <br />
+                                Count: ${d[1] - d[0]}
+
+                            `)
+                    })
+                    .on("mouseleave", (e) => {
+                        d3.select(e.target)
+                            .attr("stroke", "none");
+                        d3.select("#tooltip")
+                            .style("display", "none")
+                    });
+                g.selectAll("text")
+                    .data(arr)
+                    .join("text")
+                    .attr("fill", "#000")
+                    .attr("x", (d) => x(d.data.gender) + x.bandwidth() / 2)
+                    .attr("y", ([y1, y2]) => (y(y1) + y(y2)) / 2 + 2)
+                    .text((d, i) => ((d[1] - d[0]) / series[series.length - 1][i][1] * 100).toFixed(2) + "%")
+            })
         }
 
         function major(res) {
@@ -294,13 +399,14 @@
                             .style("left", e.clientX + 10 + "px")
                             .style("top", e.pageY + 10 + "px")
                             .html(`
-                                Answer: ${d[0]}
+                                ${d[0]}
                                 <br />
                                 Major: ${arr[0]}
                                 <br />
                                 Count: ${d3.sum(d[1], d => d.Count)}
                                 <br />
                                 Percentage: ${(d3.sum(d[1], d => d.Count) / sum * 100).toFixed(2)}%
+                                
                             `)
                     })
                     .on("mouseleave", (e) => {
@@ -387,9 +493,9 @@
                             .html(`
                                 ${arr[0]}
                                 <br />
-                                Answer: ${d.data.Answer}
+                                ${d.data.Answer}
                                 <br />
-                                ${(d.data.Count / sum * 100).toFixed(2) + "%" }
+                                Percentage: ${(d.data.Count / sum * 100).toFixed(2) + "%" }
                                 <br />
                                 Count: ${d.data.Count}
                             `)
